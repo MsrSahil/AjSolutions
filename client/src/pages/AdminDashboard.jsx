@@ -1,11 +1,13 @@
-// pages/AdminDashboard.jsx
 import React, { useState } from "react";
-import Tasks from "./Admin/Task";
+// ❌ Tasks component ka import HATA DEIN
+// import Tasks from "./Admin/Task"; 
 import Users from "./Admin/Users";
 import GiveTask from "./Admin/GiveTask";
+import PendingApprovals from "./Admin/PendingApprovals";
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState("tasks");
+  // Default tab ko "approvals" kar dein
+  const [activeTab, setActiveTab] = useState("approvals");
 
   return (
     <div className="flex min-h-screen bg-[#1F1F1F] text-[#E0E0E0]">
@@ -17,14 +19,17 @@ const AdminDashboard = () => {
         <nav className="flex-1 px-4 py-6 space-y-4">
           <button
             className={`w-full text-left px-4 py-2 rounded-lg transition ${
-              activeTab === "tasks"
+              activeTab === "approvals"
                 ? "bg-[#00BFA5] text-black font-semibold"
                 : "hover:bg-[#333333]"
             }`}
-            onClick={() => setActiveTab("tasks")}
+            onClick={() => setActiveTab("approvals")}
           >
-            📋 Tasks
+            🔔 Pending Approvals
           </button>
+          
+          {/* ❌ Tasks wala button YAHAN SE HATA DEIN */}
+          
           <button
             className={`w-full text-left px-4 py-2 rounded-lg transition ${
               activeTab === "users"
@@ -50,7 +55,8 @@ const AdminDashboard = () => {
 
       {/* Main Content */}
       <main className="flex-1 p-6 overflow-y-auto">
-        {activeTab === "tasks" && <Tasks />}
+        {activeTab === "approvals" && <PendingApprovals />}
+        {/* ❌ Tasks component ka render logic YAHAN SE HATA DEIN */}
         {activeTab === "users" && <Users />}
         {activeTab === "giveTask" && <GiveTask />}
       </main>

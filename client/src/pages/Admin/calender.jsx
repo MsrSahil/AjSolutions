@@ -10,7 +10,7 @@ const colors = {
 
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const Calendar = ({ initialDate = new Date(), onSelectDate, submittedDates = [] }) => {
+const Calendar = ({ initialDate = new Date(), onSelectDate, taskStatusByDate = {}, joinDate = null }) => {
   const [viewDate, setViewDate] = useState(new Date(initialDate));
   const [selected, setSelected] = useState(null);
 
@@ -19,10 +19,8 @@ const Calendar = ({ initialDate = new Date(), onSelectDate, submittedDates = [] 
   const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
   const daysInMonth = (d) => endOfMonth(d).getDate();
 
-  const prevMonth = () =>
-    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
-  const nextMonth = () =>
-    setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  const prevMonth = () => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const nextMonth = () => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
   const goToday = () => {
     const now = new Date();
     setViewDate(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -32,54 +30,33 @@ const Calendar = ({ initialDate = new Date(), onSelectDate, submittedDates = [] 
 
   const grid = useMemo(() => {
     const start = startOfMonth(viewDate);
-    const startWeekday = start.getDay(); // 0-6
+    const startWeekday = start.getDay();
     const totalDays = daysInMonth(viewDate);
-
     const cells = [];
-
-    // previous month's trailing days
     if (startWeekday > 0) {
       const prev = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
       const prevDays = daysInMonth(prev);
       for (let i = startWeekday - 1; i >= 0; i--) {
         const dayNum = prevDays - i;
-        cells.push({
-          date: new Date(prev.getFullYear(), prev.getMonth(), dayNum),
-          inMonth: false,
-        });
+        cells.push({ date: new Date(prev.getFullYear(), prev.getMonth(), dayNum), inMonth: false });
       }
     }
-
-    // current month days
     for (let d = 1; d <= totalDays; d++) {
-      cells.push({
-        date: new Date(viewDate.getFullYear(), viewDate.getMonth(), d),
-        inMonth: true,
-      });
+      cells.push({ date: new Date(viewDate.getFullYear(), viewDate.getMonth(), d), inMonth: true });
     }
-
-    // next month's leading days to fill rows
     while (cells.length % 7 !== 0) {
       const nextIndex = cells.length - (startWeekday + totalDays);
-      const dt = new Date(
-        viewDate.getFullYear(),
-        viewDate.getMonth() + 1,
-        nextIndex + 1
-      );
+      const dt = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, nextIndex + 1);
       cells.push({ date: dt, inMonth: false });
     }
-
     return cells;
   }, [viewDate]);
 
   const isSameDay = (a, b) =>
-    a &&
-    b &&
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
+    a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
   const today = new Date();
+  const joinDateObj = joinDate ? new Date(joinDate) : null;
 
   return (
     <div className={`${colors.bg} ${colors.text} rounded-lg p-4`}>
@@ -87,40 +64,20 @@ const Calendar = ({ initialDate = new Date(), onSelectDate, submittedDates = [] 
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-sm text-[#EEEEEE]/80">
-            {viewDate.toLocaleString("default", { month: "long" })}{" "}
-            {viewDate.getFullYear()}
+            {viewDate.toLocaleString("default", { month: "long" })} {viewDate.getFullYear()}
           </div>
         </div>
-
         <div className="flex items-center gap-2">
-          <button
-            onClick={prevMonth}
-            className="px-2 py-1 rounded hover:bg-[#2E2E2E]"
-          >
-            ‹
-          </button>
-          <button
-            onClick={goToday}
-            className="px-3 py-1 rounded text-sm font-medium"
-            style={{ background: colors.card }}
-          >
-            Today
-          </button>
-          <button
-            onClick={nextMonth}
-            className="px-2 py-1 rounded hover:bg-[#2E2E2E]"
-          >
-            ›
-          </button>
+          <button onClick={prevMonth} className="px-2 py-1 rounded hover:bg-[#2E2E2E]">‹</button>
+          <button onClick={goToday} className="px-3 py-1 rounded text-sm font-medium" style={{ background: colors.card }}>Today</button>
+          <button onClick={nextMonth} className="px-2 py-1 rounded hover:bg-[#2E2E2E]">›</button>
         </div>
       </div>
 
       {/* Weekday names */}
       <div className="grid grid-cols-7 gap-1 text-center mb-2">
         {WEEK_DAYS.map((w) => (
-          <div key={w} className={`text-xs font-semibold ${colors.softText}`}>
-            {w}
-          </div>
+          <div key={w} className={`text-xs font-semibold ${colors.softText}`}>{w}</div>
         ))}
       </div>
 
@@ -131,14 +88,20 @@ const Calendar = ({ initialDate = new Date(), onSelectDate, submittedDates = [] 
           const inMonth = cell.inMonth;
           const selectedDay = isSameDay(selected, date);
           const isToday = isSameDay(today, date);
-
+          
           const dateString = date.toDateString();
+          const status = taskStatusByDate[dateString];
+          
+          // Join date se pehle ke dinon ko disable/inactive dikhayein
+          const isBeforeJoin = joinDateObj && date < joinDateObj.setHours(0,0,0,0);
+          
           let mark = null;
-
-          if (submittedDates.includes(dateString)) {
-            mark = <span className="text-green-500 font-bold">✔</span>;
-          } else if (date < new Date().setHours(0, 0, 0, 0)) {
-            mark = <span className="text-red-500 font-bold">✘</span>;
+          if (!isBeforeJoin) {
+              if (status === 'Submitted') {
+                mark = <span className="text-green-500 font-bold text-lg">✔</span>;
+              } else if (status === 'Missed') {
+                mark = <span className="text-red-500 font-bold text-lg">✘</span>;
+              }
           }
 
           return (
@@ -150,22 +113,21 @@ const Calendar = ({ initialDate = new Date(), onSelectDate, submittedDates = [] 
               }}
               className={`
                 w-full aspect-square rounded-md flex flex-col items-center justify-center
-                text-sm
-                ${inMonth ? "opacity-100" : "opacity-50"}
-                ${selectedDay ? "ring-2 ring-offset-1" : ""}
+                text-sm transition
+                ${inMonth ? "opacity-100" : "opacity-40"}
+                ${isBeforeJoin ? "opacity-30 cursor-not-allowed" : "hover:bg-[#2E2E2E]"}
+                ${selectedDay ? "ring-2 ring-offset-1 ring-[#00ADB5]" : ""}
                 ${isToday && !selectedDay ? "border border-[#00ADB5]" : ""}
-                hover:bg-[#2E2E2E] transition
               `}
               style={{
                 background: selectedDay ? colors.primary : undefined,
                 color: selectedDay ? "#222831" : undefined,
               }}
               title={date.toDateString()}
+              disabled={isBeforeJoin}
             >
-              <span className={`${selectedDay ? "font-semibold" : ""}`}>
-                {date.getDate()}
-              </span>
-              {mark && <div>{mark}</div>}
+              <span className={`${selectedDay ? "font-semibold" : ""}`}>{date.getDate()}</span>
+              {mark && <div className="absolute mt-5">{mark}</div>}
             </button>
           );
         })}

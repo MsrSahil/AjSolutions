@@ -27,6 +27,12 @@ const UserSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    // --- YEH FIELD ADD KAREIN ---
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
   },
   { timestamps: true }
 );

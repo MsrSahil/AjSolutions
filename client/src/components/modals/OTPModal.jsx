@@ -17,16 +17,18 @@ const OTPModal = ({ isOpen, onClose, callingPage, data }) => {
       let res;
       if (callingPage === "register") {
         res = await API.post("/auth/register", data);
-      } else {
+        toast.success(res.data.message); // Show the new message from backend
+        onClose();
+        navigate("/login"); // Redirect to login page
+      } else { // Login logic
         res = await API.post("/auth/login", data);
         setUser(res.data.data);
         setIsLogin(true);
         sessionStorage.setItem("ChatUser", JSON.stringify(res.data.data));
+        toast.success(res.data.message);
+        onClose();
+        navigate("/dashboard");
       }
-
-      toast.success(res.data.message);
-      onClose();
-      callingPage === "register" ? navigate("/login") : navigate("/dashboard");
     } catch (error) {
       toast.error(
         `Error : ${error.response?.status || error.message} | ${

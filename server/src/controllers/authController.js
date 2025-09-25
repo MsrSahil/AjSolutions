@@ -36,7 +36,8 @@ export const Register = async (req, res, next) => {
       photo,
     });
     res.status(201).json({
-      message: "User registered successfully",
+      // --- SUCCESS MESSAGE BADLEIN ---
+      message: "Registration successful! Your account is pending admin approval.",
       user,
     });
   } catch (error) {
@@ -47,7 +48,7 @@ export const Register = async (req, res, next) => {
 export const Login = async (req, res, next) => {
   try {
     const { email, password, otp } = req.body;
-    if (!email || !password || !otp) {
+    if (!email || !password) { // OTP can be optional here
       const error = new Error("Please fill all the fields");
       error.statusCode = 400;
       return next(error);
@@ -67,11 +68,13 @@ export const Login = async (req, res, next) => {
       return next(error);
     }
     console.log("User credentials verified");
+    
+    // --- LOGIN MEIN STATUS CHECK ADD NAHI KARNA HAI KYUNKI YEH SendOTPForLogin MEIN HOGA ---
 
-    if (otp !== "N/A" && existingUser.TwoFactorAuth === "true") {
+    if (otp && otp !== "N/A" && existingUser.TwoFactorAuth === "true") {
       const fetchOtp = await OTP.findOne({ email });
       if (!fetchOtp) {
-        const error = new Error("OTP not found");
+        const error = new Error("OTP not found or expired");
         error.statusCode = 404;
         return next(error);
       }
@@ -171,6 +174,13 @@ export const SendOTPForLogin = async (req, res, next) => {
     if (!existingUser) {
       const error = new Error("User not found");
       error.statusCode = 404;
+      return next(error);
+    }
+
+    // --- YAHAN STATUS CHECK KAREIN ---
+    if (existingUser.status !== 'approved') {
+      const error = new Error("Your account is not approved by the admin yet.");
+      error.statusCode = 403; // Forbidden
       return next(error);
     }
 
@@ -286,11 +296,6 @@ export const submitTask = async (req, res) => {
   }
 };
 
-
-
-
-
-
 // Get tasks of logged-in user
 export const getTasks = async (req, res) => {
   try {
@@ -303,10 +308,14 @@ export const getTasks = async (req, res) => {
     // fetch all tasks of this user
     const tasks = await Task.find({ user: userId }).sort({ date: 1 });
 
-    res.status(200).json({ success: true, tasks });
+    // --- USER KI JOIN DATE BHI SAATH MEIN BHEJEIN ---
+    res.status(200).json({ 
+        success: true, 
+        tasks,
+        joinDate: req.user.createdAt // User's registration date
+    });
   } catch (error) {
     console.error("Error fetching tasks:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
-
