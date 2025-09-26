@@ -36,7 +36,6 @@ export const Register = async (req, res, next) => {
       photo,
     });
     res.status(201).json({
-      // --- SUCCESS MESSAGE BADLEIN ---
       message: "Registration successful! Your account is pending admin approval.",
       user,
     });
@@ -45,12 +44,10 @@ export const Register = async (req, res, next) => {
   }
 };
 
-
-
 export const Login = async (req, res, next) => {
   try {
     const { email, password, otp } = req.body;
-    if (!email || !password) { // OTP zaroori nahi hai is stage par
+    if (!email || !password) {
       return res.status(400).json({ message: "Please fill all the fields" });
     }
 
@@ -64,8 +61,11 @@ export const Login = async (req, res, next) => {
         return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 2FA check (agar OTP hai)
-    if (existingUser.TwoFactorAuth && otp) {
+    // If 2FA is enabled, the OTP is now MANDATORY.
+    if (existingUser.TwoFactorAuth) {
+      if (!otp) {
+        return res.status(401).json({ message: "OTP is required for this account." });
+      }
       const fetchOtp = await OTP.findOne({ email });
       if (!fetchOtp) {
         return res.status(404).json({ message: "OTP has expired. Please try again." });
@@ -100,6 +100,7 @@ export const SendOTPForLogin = async (req, res, next) => {
         return res.status(404).json({ message: "User not found" });
     }
     
+    // Check user's status before proceeding
     if (existingUser.status !== 'approved') {
       const message = existingUser.status === 'pending' 
         ? "Your account is pending admin approval."
@@ -111,7 +112,7 @@ export const SendOTPForLogin = async (req, res, next) => {
     if (!isVerified) {
         return res.status(401).json({ message: "Invalid credentials" });
     }
-    console.log("User verified, proceeding to OTP...");
+    
     if (!existingUser.TwoFactorAuth) {
       genToken(existingUser, res);
       return res.status(200).json({
@@ -125,8 +126,6 @@ export const SendOTPForLogin = async (req, res, next) => {
     await OTP.findOneAndDelete({ email });
     await OTP.create({ email, otp: hashedOtp });
 
-    // --- YEH CODE ADD KIYA GAYA HAI ---
-    console.log(`Login OTP for ${email}: ${otp}`); // Server console par OTP dekhne ke liye
     const subject = "Your Login OTP Code";
     const message = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
@@ -151,7 +150,6 @@ export const SendOTPForLogin = async (req, res, next) => {
       </div>
     `;
     sendEmail(email, subject, message);
-    // --- YAHAN TAK ---
     
     res.status(200).json({ message: "OTP sent successfully" });
 
@@ -182,11 +180,8 @@ export const SendOTPForRegister = async (req, res, next) => {
       email,
       otp: hashedOtp,
     });
-    console.log(otp);
     
-
     const subject = "Verify your email";
-
     const message = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
                 <div style="text-align: center; padding: 20px 0;">
@@ -219,7 +214,6 @@ export const SendOTPForRegister = async (req, res, next) => {
   }
 };
 
-
 export const Logout = (req, res, next) => {
   try {
     res.clearCookie("token");
@@ -229,7 +223,6 @@ export const Logout = (req, res, next) => {
   }
 };
 
-// User submits answer for today's assigned task
 export const submitTask = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -245,7 +238,6 @@ export const submitTask = async (req, res) => {
       return res.status(400).json({ message: "Task ID is required" });
     }
 
-    // Find specific task by id and user
     const task = await Task.findOne({
       _id: taskId,
       user: userId,
@@ -259,7 +251,6 @@ export const submitTask = async (req, res) => {
       return res.status(400).json({ message: "This task already submitted" });
     }
 
-    // Update task with answer
     task.answer = answer;
     task.completed = true;
     await task.save();
@@ -271,12 +262,10 @@ export const submitTask = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Submit Task Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// Get tasks of logged-in user
 export const getTasks = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -285,17 +274,14 @@ export const getTasks = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // fetch all tasks of this user
     const tasks = await Task.find({ user: userId }).sort({ date: 1 });
 
-    // --- USER KI JOIN DATE BHI SAATH MEIN BHEJEIN ---
     res.status(200).json({ 
         success: true, 
         tasks,
-        joinDate: req.user.createdAt // User's registration date
+        joinDate: req.user.createdAt
     });
   } catch (error) {
-    console.error("Error fetching tasks:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
