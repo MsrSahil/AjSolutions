@@ -9,7 +9,7 @@ const UserSchema = new mongoose.Schema(
     role: { type: String, enum: ["user", "admin"], default: "user" },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     // --- YEH FIELD ADD KAREIN ---
-    TwoFactorAuth: { type: Boolean, default: false }
+    TwoFactorAuth: { type: Boolean, default: true }
   },
   { timestamps: true }
 );

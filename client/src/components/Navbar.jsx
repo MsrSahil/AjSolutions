@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
-
 import api from "../config/Api";
 import { HiOutlineLogout } from "react-icons/hi";
 
@@ -11,28 +10,25 @@ const Navbar = () => {
   const { user, isLogin, setUser, setIsLogin } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const location = useLocation().pathname.slice(1);
-  console.log(location);
+  // Logo ke liye dynamic link
+  const logoLink = isLogin
+    ? user.role === "admin"
+      ? "/admindashboard"
+      : "/dashboard"
+    : "/login";
 
   const handleLogout = async () => {
-    // add Backend API Call on route GET /auth/logout
     try {
-      const res = await api.post("/auth/logout");
-      toast.success(res.data.message);
-      setUser("");
+      await api.post("/auth/logout");
+      toast.success("Logged out successfully");
+      setUser(null);
       setIsLogin(false);
       sessionStorage.removeItem("ChatUser");
-      navigate("/");
+      navigate("/login");
     } catch (error) {
-      toast.error(
-        `Error : ${error.response?.status || error.message} | ${
-          error.response?.data.message || ""
-        }`
-      );
+      toast.error(error.response?.data?.message || "Logout failed");
     }
   };
-
-  
 
   return (
     <nav className="bg-[#222831] text-[#EEEEEE] shadow-md">
@@ -40,10 +36,10 @@ const Navbar = () => {
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
           <Link
-            to="/"
+            to={logoLink}
             className="text-2xl font-bold text-[#00ADB5] hover:text-[#EEEEEE] transition"
           >
-            Trello-Box
+            AJ-Solutions
           </Link>
 
           {/* Hamburger button (mobile only) */}
@@ -58,33 +54,22 @@ const Navbar = () => {
           <div
             className={`flex-col md:flex md:flex-row md:space-x-6 absolute md:static top-16 left-0 w-full md:w-auto bg-[#222831] md:bg-transparent transition-all duration-300 ${
               menuOpen ? "flex" : "hidden"
-            } md:flex`}
+            } md:flex items-center`}
           >
-            <Link
-              to="/"
-              className="px-4 py-2 md:py-0 hover:text-[#00ADB5] transition font-medium"
-              onClick={() => setMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link
-              to="/admin"
-              className="px-4 py-2 md:py-0 hover:text-[#00ADB5] transition font-medium"
-              onClick={() => setMenuOpen(false)}
-            >
-              Admin Login
-            </Link>
+            {/* Home aur Admin Login links yahan se hata diye gaye hain */}
+
             {isLogin && user ? (
               <>
-                <Link to="/dashboard">
-                  <div className="flex gap-3 items-center me-5">
-                    <img
-                      src={user.photo}
-                      alt=""
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
-                    <span>{user.fullName.split(" ")[0]}</span>
-                  </div>
+                <Link
+                  to={user.role === "admin" ? "/admindashboard" : "/dashboard"}
+                  className="flex gap-3 items-center me-5 px-4 py-2 md:py-0"
+                >
+                  <img
+                    src={user.photo}
+                    alt="profile"
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                  <span>{user.fullName.split(" ")[0]}</span>
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -100,7 +85,7 @@ const Navbar = () => {
                 className="px-4 py-2 md:py-0 hover:text-[#00ADB5] transition font-medium"
                 onClick={() => setMenuOpen(false)}
               >
-                login
+                Login
               </Link>
             )}
           </div>

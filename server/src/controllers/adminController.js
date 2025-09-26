@@ -3,6 +3,7 @@ import User from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import sendEmail from "../utils/sendEmail.js";
+import uploadOnCloudinary from "../utils/cloudinary.js";
 
 // ✅ Admin Login (Updated Code)
 export const adminLogin = async (req, res) => {
@@ -54,7 +55,7 @@ export const adminLogin = async (req, res) => {
 };
 
 
-// ... baaki saara code waise hi rahega ...
+
 
 // ✅ Get all pending user registrations
 export const getPendingUsers = async (req, res) => {
@@ -128,23 +129,49 @@ export const getUserDetails = async (req, res) => {
   }
 };
 
-// ✅ Admin assigns a task (question) to multiple users
+// ✅ Admin assigns a task (Updated with File Upload)
 export const giveTask = async (req, res) => {
   try {
     const { title, users } = req.body;
+
     if (!title || !users || users.length === 0) {
       return res.status(400).json({ success: false, message: "Title and users are required" });
     }
-    const taskDocs = users.map((userId) => ({
+
+    let attachmentUrl = "";
+    let attachmentPublicId = "";
+
+    // Check karein ki file attach hui hai ya nahi
+    if (req.file) {
+      const localFilePath = req.file.path;
+      const attachment = await uploadOnCloudinary(localFilePath);
+      
+      if (attachment && attachment.url) {
+        attachmentUrl = attachment.url;
+        attachmentPublicId = attachment.public_id;
+      } else {
+        return res.status(500).json({ success: false, message: "File upload failed" });
+      }
+    }
+
+    const usersArray = JSON.parse(users); // users string se array mein convert karein
+
+    const taskDocs = usersArray.map((userId) => ({
       title,
       user: userId,
       date: new Date(),
+      attachmentUrl, // URL save karein
+      attachmentPublicId, // Public ID save karein
       answer: "",
       completed: false,
     }));
+
     await Task.insertMany(taskDocs);
+
     res.status(201).json({ success: true, message: "Task assigned successfully" });
+
   } catch (error) {
+    console.error("Assign Task Error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
