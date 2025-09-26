@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
-import { useEffect } from "react";
+
 import api from "../config/Api";
 import { HiOutlineLogout } from "react-icons/hi";
 
@@ -32,12 +32,7 @@ const Navbar = () => {
     }
   };
 
-  useEffect(() => {
-  if (!isLogin && !window.location.pathname.startsWith("/admin")) {
-    navigate("/login");
-  }
-}, []);
-
+  
 
   return (
     <nav className="bg-[#222831] text-[#EEEEEE] shadow-md">

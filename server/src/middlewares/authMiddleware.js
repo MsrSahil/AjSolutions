@@ -1,40 +1,32 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 
-export const Protect = async (req, res, next) => {
-  const token = req.cookies.token;
+// User ko authenticate karne ke liye
+export const protect = async (req, res, next) => {
+  let token;
+  token = req.cookies.token;
 
   if (!token) {
-    const error = new Error("Unauthorized");
-    error.status = 401;
-    return next(error);
+    return res.status(401).json({ message: "Not authorized, no token" });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id);
+    req.user = await User.findById(decoded.id).select("-password");
+    if (!req.user) {
+        return res.status(401).json({ message: "Not authorized, user not found" });
+    }
     next();
-  } catch (err) {
-    const error = new Error("Unauthorized");
-    error.status = 401;
-    return next(error);
+  } catch (error) {
+    return res.status(401).json({ message: "Not authorized, token failed" });
   }
 };
 
-
-// ✅ Check if user is admin
-export const isAuthenticated = async (req, res, next) => {
-  try {
-    const token = req.cookies.token;
-    if (!token) return res.status(401).json({ message: "Not authenticated" });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
-    if (!user) return res.status(401).json({ message: "User not found" });
-
-    req.user = user;
+// Check karne ke liye ki user Admin hai ya nahi
+export const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
     next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
+  } else {
+    res.status(403).json({ message: "Not authorized as an admin" });
   }
 };

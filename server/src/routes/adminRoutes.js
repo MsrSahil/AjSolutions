@@ -1,28 +1,25 @@
 import express from "express";
-import { 
-    adminLogin, 
-    getAllUsers, 
-    getUserDetails, 
-    giveTask,
-    getPendingUsers,
-    updateUserStatus
-    // ❌ getAllUserTasks aur getTaskDetails ko import se HATA DEIN
+import {
+  adminLogin,
+  getAllUsers,
+  getUserDetails,
+  giveTask,
+  getPendingUsers,
+  updateUserStatus,
 } from "../controllers/adminController.js";
-import { isAuthenticated } from "../middlewares/authMiddleware.js";
+// Naye middleware import karein
+import { protect, isAdmin } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
+// Public route
 router.post("/adminlogin", adminLogin);
 
-router.get("/pending-users", isAuthenticated, getPendingUsers);
-router.put("/users/:userId/status", isAuthenticated, updateUserStatus);
-
-
-// ❌ /allTasks aur /task/:id wali routes ko YAHAN SE HATA DIYA GAYA HAI
-
-
-router.get("/allUsers", isAuthenticated, getAllUsers);
-router.get("/user/:id", isAuthenticated, getUserDetails);
-router.post("/assignTask", isAuthenticated, giveTask);
+// Protected Admin Routes
+router.get("/pending-users", protect, isAdmin, getPendingUsers);
+router.put("/users/:userId/status", protect, isAdmin, updateUserStatus);
+router.get("/allUsers", protect, isAdmin, getAllUsers);
+router.get("/user/:id", protect, isAdmin, getUserDetails);
+router.post("/assignTask", protect, isAdmin, giveTask);
 
 export default router;

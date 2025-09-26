@@ -1,18 +1,16 @@
 import Task from "../models/task.js";
 import User from "../models/userModel.js";
-import sendEmail from "../utils/sendEmail.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import sendEmail from "../utils/sendEmail.js";
 
-// ✅ Admin Login
+// ✅ Admin Login (Updated Code)
 export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required" });
+      return res.status(400).json({ message: "Email and password are required" });
     }
 
     const user = await User.findOne({ email });
@@ -33,6 +31,9 @@ export const adminLogin = async (req, res) => {
       expiresIn: "1d",
     });
 
+    // User data ko password ke bina select karein
+    const userWithoutPassword = await User.findById(user._id).select('-password');
+
     res
       .cookie("token", token, {
         httpOnly: true,
@@ -40,17 +41,25 @@ export const adminLogin = async (req, res) => {
         maxAge: 24 * 60 * 60 * 1000,
       })
       .status(200)
-      .json({ success: true, message: "Admin logged in successfully" });
+      // --- YEH BADLAV KAREIN: User data ko response mein bhejein ---
+      .json({ 
+        success: true, 
+        message: "Admin logged in successfully",
+        data: userWithoutPassword 
+      });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+
+// ... baaki saara code waise hi rahega ...
+
 // ✅ Get all pending user registrations
 export const getPendingUsers = async (req, res) => {
   try {
-    const users = await User.find({ status: "pending" }).select("-password");
+    const users = await User.find({ status: 'pending', role: 'user' }).select('-password');
     res.status(200).json({ success: true, users });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error" });
@@ -69,15 +78,8 @@ export const updateUserStatus = async (req, res) => {
         return res.status(404).json({ success: false, message: "User not found" });
       }
       
-      // --- Approve hone par User ko Email Bhejein ---
       const subject = "Account Approved! Welcome Aboard!";
-      const message = `
-        <p>Hi ${user.fullName},</p>
-        <p>Congratulations! Your account has been approved by our admin.</p>
-        <p>You can now log in and start using our platform.</p>
-        <p>Thanks,</p>
-        <p>The Team</p>
-      `;
+      const message = `<p>Hi ${user.fullName},</p><p>Congratulations! Your account has been approved by our admin.</p><p>You can now log in and start using our platform.</p>`;
       sendEmail(user.email, subject, message);
 
       res.status(200).json({ success: true, message: "User approved successfully." });
@@ -87,16 +89,9 @@ export const updateUserStatus = async (req, res) => {
        if (!user) {
         return res.status(404).json({ success: false, message: "User not found" });
       }
-
-      // --- Reject hone par User ko Email Bhejein ---
+      
       const subject = "Update on Your Registration";
-      const message = `
-        <p>Hi ${user.fullName},</p>
-        <p>We're sorry to inform you that after careful review, your registration has been rejected.</p>
-        <p>If you believe this is a mistake, please contact our support team.</p>
-        <p>Thanks,</p>
-        <p>The Team</p>
-      `;
+      const message = `<p>Hi ${user.fullName},</p><p>We're sorry to inform you that your registration has been rejected.</p>`;
       sendEmail(user.email, subject, message);
 
       res.status(200).json({ success: true, message: "User rejected and removed." });
@@ -108,38 +103,26 @@ export const updateUserStatus = async (req, res) => {
   }
 };
 
-// ❌ getAllUserTasks aur getTaskDetails functions ko YAHAN SE HATA DIYA GAYA HAI
 
 // ✅ Get all users
 export const getAllUsers = async (req, res) => {
   try {
-    // --- SIRF APPROVED USERS KO FETCH KARNE KE LIYE FILTER ADD KAREIN ---
-    const users = await User.find(
-      { role: "user", status: "approved" },
-      "fullName email photo"
-    );
+    const users = await User.find({ role: 'user', status: 'approved' }, "fullName email photo");
     res.status(200).json({ success: true, users });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
 // ✅ Get single user details with tasks
 export const getUserDetails = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
     if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
-
     const tasks = await Task.find({ user: user._id }).sort({ date: -1 });
-
-    res.status(200).json({
-      success: true,
-      user,
-      tasks,
-    });
+    res.status(200).json({ success: true, user, tasks });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -149,13 +132,9 @@ export const getUserDetails = async (req, res) => {
 export const giveTask = async (req, res) => {
   try {
     const { title, users } = req.body;
-
     if (!title || !users || users.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Title and users are required" });
+      return res.status(400).json({ success: false, message: "Title and users are required" });
     }
-
     const taskDocs = users.map((userId) => ({
       title,
       user: userId,
@@ -163,15 +142,9 @@ export const giveTask = async (req, res) => {
       answer: "",
       completed: false,
     }));
-
     await Task.insertMany(taskDocs);
-
-    res.status(201).json({
-      success: true,
-      message: "Task assigned successfully",
-    });
+    res.status(201).json({ success: true, message: "Task assigned successfully" });
   } catch (error) {
-    console.error("Assign Task Error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

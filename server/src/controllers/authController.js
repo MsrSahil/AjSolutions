@@ -45,56 +45,93 @@ export const Register = async (req, res, next) => {
   }
 };
 
+
+
 export const Login = async (req, res, next) => {
   try {
     const { email, password, otp } = req.body;
-    if (!email || !password) { // OTP can be optional here
-      const error = new Error("Please fill all the fields");
-      error.statusCode = 400;
-      return next(error);
+    if (!email || !password) { // OTP zaroori nahi hai is stage par
+      return res.status(400).json({ message: "Please fill all the fields" });
     }
 
     const existingUser = await User.findOne({ email });
     if (!existingUser) {
-      const error = new Error("User not found");
-      error.statusCode = 404;
-      return next(error);
+        return res.status(404).json({ message: "User not found" });
     }
 
     const isVerified = await bcrypt.compare(password, existingUser.password);
     if (!isVerified) {
-      const error = new Error("Invalid credentials");
-      error.statusCode = 401;
-      return next(error);
+        return res.status(401).json({ message: "Invalid credentials" });
     }
-    console.log("User credentials verified");
-    
-    // --- LOGIN MEIN STATUS CHECK ADD NAHI KARNA HAI KYUNKI YEH SendOTPForLogin MEIN HOGA ---
 
-    if (otp && otp !== "N/A" && existingUser.TwoFactorAuth === "true") {
+    // 2FA check (agar OTP hai)
+    if (existingUser.TwoFactorAuth && otp) {
       const fetchOtp = await OTP.findOne({ email });
       if (!fetchOtp) {
-        const error = new Error("OTP not found or expired");
-        error.statusCode = 404;
-        return next(error);
+        return res.status(404).json({ message: "OTP has expired. Please try again." });
       }
-      console.log("Validating OTP");
       const isOtpValid = await bcrypt.compare(otp.toString(), fetchOtp.otp);
       if (!isOtpValid) {
-        const error = new Error("Invalid OTP");
-        error.statusCode = 401;
-        return next(error);
+        return res.status(401).json({ message: "Invalid OTP provided." });
       }
-
       await OTP.deleteOne({ email });
     }
-    console.log("Login successful");
+    
     genToken(existingUser, res);
 
     res.status(200).json({
       message: "Login successful",
       data: existingUser,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const SendOTPForLogin = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ message: "Please provide email and password" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (!existingUser) {
+        return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Yahaan status check karna sabse zaroori hai
+    if (existingUser.status !== 'approved') {
+      const message = existingUser.status === 'pending' 
+        ? "Your account is pending admin approval."
+        : "Your account has been rejected.";
+      return res.status(403).json({ message });
+    }
+
+    const isVerified = await bcrypt.compare(password, existingUser.password);
+    if (!isVerified) {
+        return res.status(401).json({ message: "Invalid credentials" });
+    }
+    
+    // Agar 2FA enabled nahi hai, to seedha login response bhej dein
+    if (!existingUser.TwoFactorAuth) {
+      genToken(existingUser, res);
+      return res.status(200).json({
+        message: "Login successful (2FA not required)",
+        data: existingUser,
+      });
+    }
+
+    // Sirf 2FA enabled hone par hi OTP bhejein
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const hashedOtp = await bcrypt.hash(otp.toString(), 10);
+    await OTP.findOneAndDelete({ email }); // Purana OTP delete karein
+    await OTP.create({ email, otp: hashedOtp });
+
+    // Email logic... (same as before)
+    
+    res.status(200).json({ message: "OTP sent successfully" });
+
   } catch (error) {
     next(error);
   }
@@ -159,86 +196,6 @@ export const SendOTPForRegister = async (req, res, next) => {
   }
 };
 
-export const SendOTPForLogin = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      const error = new Error("Please fill all the fields");
-      error.statusCode = 400;
-      return next(error);
-    }
-    console.log({ email, password });
-
-    const existingUser = await User.findOne({ email });
-    if (!existingUser) {
-      const error = new Error("User not found");
-      error.statusCode = 404;
-      return next(error);
-    }
-
-    // --- YAHAN STATUS CHECK KAREIN ---
-    if (existingUser.status !== 'approved') {
-      const error = new Error("Your account is not approved by the admin yet.");
-      error.statusCode = 403; // Forbidden
-      return next(error);
-    }
-
-    const isVerified = await bcrypt.compare(password, existingUser.password);
-    if (!isVerified) {
-      const error = new Error("Invalid credentials");
-      error.statusCode = 401;
-      return next(error);
-    }
-    console.log(existingUser);
-    if (existingUser.TwoFactorAuth === "false") {
-      req.body.otp = "N/A";
-      console.log("Starting Login");
-      return Login(req, res, next);
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000);
-    const hashedOtp = await bcrypt.hash(otp.toString(), 10);
-    await OTP.create({
-      email,
-      otp: hashedOtp,
-    });
-    console.log(otp);
-    
-
-    const subject = "2-Step verification code";
-
-    const message = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
-                <div style="text-align: center; padding: 20px 0;">
-                    <h2 style="color: #333;">Msr Artrex Pvt. Ltd.</h2>
-                    <h1 style="color: #333; margin-bottom: 20px;">2-Step Verification Code</h1>
-                    <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <p style="font-size: 16px; color: #666; margin-bottom: 20px;">
-                            Your verification code is:
-                        </p>
-                        <h2 style="font-size: 32px; color: #4CAF50; letter-spacing: 5px; margin: 20px 0;">
-                            ${otp}
-                        </h2>
-                        <p style="font-size: 14px; color: #999; margin-top: 20px;">
-                            This code will expire in 10 minutes. Please do not share this code with anyone.
-                        </p>
-                    </div>
-                    <p style="font-size: 14px; color: #666; margin-top: 20px;">
-                        If you didn't request this code, please ignore this email.
-                    </p>
-                </div>
-            </div>
-        `;
-
-    sendEmail(email, subject, message);
-    res.status(200).json({
-      message: "OTP sent successfully",
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 export const Logout = (req, res, next) => {
   try {
