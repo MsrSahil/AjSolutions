@@ -100,7 +100,6 @@ export const SendOTPForLogin = async (req, res, next) => {
         return res.status(404).json({ message: "User not found" });
     }
     
-    // Yahaan status check karna sabse zaroori hai
     if (existingUser.status !== 'approved') {
       const message = existingUser.status === 'pending' 
         ? "Your account is pending admin approval."
@@ -112,8 +111,7 @@ export const SendOTPForLogin = async (req, res, next) => {
     if (!isVerified) {
         return res.status(401).json({ message: "Invalid credentials" });
     }
-    
-    // Agar 2FA enabled nahi hai, to seedha login response bhej dein
+    console.log("User verified, proceeding to OTP...");
     if (!existingUser.TwoFactorAuth) {
       genToken(existingUser, res);
       return res.status(200).json({
@@ -122,13 +120,38 @@ export const SendOTPForLogin = async (req, res, next) => {
       });
     }
 
-    // Sirf 2FA enabled hone par hi OTP bhejein
     const otp = Math.floor(100000 + Math.random() * 900000);
     const hashedOtp = await bcrypt.hash(otp.toString(), 10);
-    await OTP.findOneAndDelete({ email }); // Purana OTP delete karein
+    await OTP.findOneAndDelete({ email });
     await OTP.create({ email, otp: hashedOtp });
 
-    // Email logic... (same as before)
+    // --- YEH CODE ADD KIYA GAYA HAI ---
+    console.log(`Login OTP for ${email}: ${otp}`); // Server console par OTP dekhne ke liye
+    const subject = "Your Login OTP Code";
+    const message = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
+          <div style="text-align: center; padding: 20px 0;">
+              <h2 style="color: #333;">Msr Artrex Pvt. Ltd.</h2>
+              <h1 style="color: #333; margin-bottom: 20px;">2-Step Verification Code</h1>
+              <div style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <p style="font-size: 16px; color: #666; margin-bottom: 20px;">
+                      Your verification code is:
+                  </p>
+                  <h2 style="font-size: 32px; color: #4CAF50; letter-spacing: 5px; margin: 20px 0;">
+                      ${otp}
+                  </h2>
+                  <p style="font-size: 14px; color: #999; margin-top: 20px;">
+                      This code will expire in 10 minutes. Please do not share this code with anyone.
+                  </p>
+              </div>
+              <p style="font-size: 14px; color: #666; margin-top: 20px;">
+                  If you didn't request this code, please ignore this email.
+              </p>
+          </div>
+      </div>
+    `;
+    sendEmail(email, subject, message);
+    // --- YAHAN TAK ---
     
     res.status(200).json({ message: "OTP sent successfully" });
 
